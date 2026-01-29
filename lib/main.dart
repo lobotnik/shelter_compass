@@ -45,6 +45,14 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   Position? _currentPosition;
   List<Shelter> _shelters = [];
   Shelter? _nearestShelter;
+  bool _isManualSelection = false;
+  double _compassOffset = 0.0; // Manual software calibration offset
+
+  // High-accuracy compass states
+  double _smoothHeading = 0.0;
+  final double _filterFactor =
+      0.15; // Lower = smoother, but laggy. 0.15 is snappy.
+
   bool _isLoading = true;
   String _error = '';
 
@@ -72,7 +80,27 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
 
       await _refreshShelters();
 
-      // Periodically update location in real-time
+      // Compass listener with smoothing and speed-based logic
+      FlutterCompass.events?.listen((event) {
+        if (!mounted || event.heading == null) return;
+
+        // Use GPS Heading if moving, else Magnetometer
+        double rawHeading = event.heading!;
+        if (_currentPosition != null && _currentPosition!.speed > 1.0) {
+          // > 3.6km/h
+          rawHeading = _currentPosition!.heading;
+        }
+
+        double diff = (rawHeading - _smoothHeading);
+        while (diff < -180) diff += 360;
+        while (diff > 180) diff -= 360;
+
+        setState(() {
+          _smoothHeading += diff * _filterFactor;
+        });
+      });
+
+      // Continuous location updates
       Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.bestForNavigation,
@@ -82,8 +110,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
         if (mounted) {
           setState(() {
             _currentPosition = pos;
-            // Only re-calculate nearest if we have shelters
-            if (_shelters.isNotEmpty) {
+            if (_shelters.isNotEmpty && !_isManualSelection) {
               _nearestShelter = _logic.findNearestShelter(
                 pos.latitude,
                 pos.longitude,
@@ -128,12 +155,86 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     }
   }
 
+  void _showCalibrationDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Calibrate Compass',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '1. Hardware Calibration',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Move your phone in a figure-8 pattern as shown below to recalibrate the hardware sensors.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/calibration_8.png',
+                      height: 180,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '2. Software Offset',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    'Adjust if the needle is still consistently off.',
+                    textAlign: TextAlign.center,
+                  ),
+                  Slider(
+                    value: _compassOffset,
+                    min: -180,
+                    max: 180,
+                    divisions: 360,
+                    label: '${_compassOffset.round()}°',
+                    onChanged: (value) {
+                      setModalState(() => _compassOffset = value);
+                      setState(() => _compassOffset = value);
+                    },
+                  ),
+                  Text('Offset: ${_compassOffset.round()} degrees'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Done'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Nearby Shelters'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_overscan),
+            tooltip: 'Calibrate Compass',
+            onPressed: _showCalibrationDialog,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshShelters,
@@ -163,101 +264,105 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   }
 
   Widget _buildCompassSection() {
-    return StreamBuilder<CompassEvent>(
-      stream: FlutterCompass.events,
-      builder: (context, snapshot) {
-        if (snapshot.hasError)
-          return const Center(child: Text('Compass Error'));
+    if (_nearestShelter == null || _currentPosition == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        final direction = snapshot.data?.heading;
-        if (direction == null ||
-            _nearestShelter == null ||
-            _currentPosition == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final double bearing = _logic.calculateBearing(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _nearestShelter!,
+    );
 
-        // Resulting angle to rotate the needle
-        final double bearing = _logic.calculateBearing(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          _nearestShelter!,
-        );
+    final double distance = _logic.calculateDistance(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _nearestShelter!,
+    );
 
-        final double distance = _logic.calculateDistance(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          _nearestShelter!,
-        );
+    // Use our smoothed heading and add the manual offset
+    double rotation =
+        (bearing - _smoothHeading + _compassOffset) * (math.pi / 180);
 
-        // Normalize heading and bearing to 0-360
-        double heading = direction;
-        double targetBearing = bearing;
+    // Check if we are currently using GPS heading (speed > 1.0 m/s)
+    bool isGpsHeading = _currentPosition!.speed > 1.0;
 
-        // Needle should rotate by (Target Bearing - Current Heading)
-        double rotation = (targetBearing - heading) * (math.pi / 180);
-
-        return Card(
-          margin: const EdgeInsets.all(16),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                          width: 4,
-                        ),
-                      ),
+                Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.blue.withOpacity(0.3),
+                      width: 4,
                     ),
-                    Transform.rotate(
-                      angle: rotation,
-                      child: const Icon(
-                        Icons
-                            .north, // Use north icon which points straight up (0 deg)
-                        size: 80,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'Nearest Shelter',
-                        style: TextStyle(fontSize: 14, color: Colors.blue),
-                      ),
-                      Text(
-                        '${distance.round()} meters',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        _nearestShelter!.address,
-                        style: const TextStyle(fontSize: 16),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ),
                 ),
+                Transform.rotate(
+                  angle: rotation,
+                  child: const Icon(
+                    Icons.north,
+                    size: 80,
+                    color: Colors.redAccent,
+                  ),
+                ),
+                if (isGpsHeading)
+                  const Positioned(
+                    bottom: 0,
+                    child: Icon(Icons.gps_fixed, size: 16, color: Colors.blue),
+                  ),
               ],
             ),
-          ),
-        );
-      },
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Target Shelter',
+                        style: TextStyle(fontSize: 14, color: Colors.blue),
+                      ),
+                      if (isGpsHeading)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8.0),
+                          child: Text(
+                            '(GPS)',
+                            style: TextStyle(fontSize: 10, color: Colors.blue),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Text(
+                    '${distance.round()} meters',
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    _nearestShelter!.address,
+                    style: const TextStyle(fontSize: 16),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -288,6 +393,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
           onTap: () {
             setState(() {
               _nearestShelter = shelter;
+              _isManualSelection = true;
             });
           },
         );
