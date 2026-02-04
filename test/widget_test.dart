@@ -11,20 +11,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:compass/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('ShelterCompassApp smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const ShelterCompassApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the title "Nearby Shelters" is present (it's in the AppBar).
+    expect(find.text('Nearby Shelters'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify that we start with a loading indicator or some initial state.
+    // Since the app starts with _isLoading = true, we expect a CircularProgressIndicator.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

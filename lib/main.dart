@@ -384,51 +384,82 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
           // Calculate a responsive height for the arrow
           double arrowSize = (constraints.maxHeight * 0.5).clamp(120, 220);
 
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Transform.rotate(
-                angle: rotation,
-                child: Image.asset(
-                  isGpsHeading
-                      ? 'assets/navigation_arrow_active.png'
-                      : 'assets/navigation_arrow.png',
-                  height: arrowSize,
-                  fit: BoxFit.contain,
+          // Calculate relative direction description
+          String directionDescription = '';
+          double relativeBearing = bearing - _smoothHeading;
+          while (relativeBearing < -180) relativeBearing += 360;
+          while (relativeBearing > 180) relativeBearing -= 360;
+
+          if (relativeBearing.abs() < 22.5) {
+            directionDescription = 'rakt fram';
+          } else if (relativeBearing.abs() > 157.5) {
+            directionDescription = 'bakom dig';
+          } else if (relativeBearing > 0) {
+            if (relativeBearing < 67.5)
+              directionDescription = 'snett höger';
+            else if (relativeBearing < 112.5)
+              directionDescription = 'höger';
+            else
+              directionDescription = 'snett bakåt höger';
+          } else {
+            if (relativeBearing > -67.5)
+              directionDescription = 'snett vänster';
+            else if (relativeBearing > -112.5)
+              directionDescription = 'vänster';
+            else
+              directionDescription = 'snett bakåt vänster';
+          }
+
+          return Semantics(
+            label:
+                'Närmaste skyddsrum ligger ${distance.round()} meter bort, $directionDescription. Adress: ${_nearestShelter!.address}.',
+            excludeSemantics: true,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Transform.rotate(
+                  angle: rotation,
+                  child: Image.asset(
+                    isGpsHeading
+                        ? 'assets/navigation_arrow_active.png'
+                        : 'assets/navigation_arrow.png',
+                    height: arrowSize,
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-              SizedBox(height: constraints.maxHeight * 0.05),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  '${distance.round()} meter',
+                SizedBox(height: constraints.maxHeight * 0.05),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${distance.round()} meter',
+                    style: GoogleFonts.outfit(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _nearestShelter!.address,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.outfit(
-                    fontSize: 40,
+                    fontSize: 18,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
                   ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                _nearestShelter!.address,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white,
+                Text(
+                  'Kapacitet: ${_nearestShelter!.capacity} personer',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: const Color(0xFF9BA1A6),
+                  ),
                 ),
-              ),
-              Text(
-                'Kapacitet: ${_nearestShelter!.capacity} personer',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: const Color(0xFF9BA1A6),
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

@@ -24,4 +24,16 @@ class Shelter {
       longitude: geom[0].toDouble(),
     );
   }
+  Map<String, dynamic> toJson() {
+    return {
+      'properties': {
+        'Skyddsrumsnr': id,
+        'Gatuadress': address,
+        'AntalPlatser': capacity,
+      },
+      'geometry': {
+        'coordinates': [longitude, latitude],
+      },
+    };
+  }
 }
