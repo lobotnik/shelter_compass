@@ -39,6 +39,7 @@ dependencies:
   http: ^1.6.0
   vector_math: ^2.2.0
   permission_handler: ^12.0.1
+  google_fonts: ^7.0.0
 
 dev_dependencies:
   flutter_test:
@@ -64,6 +65,9 @@ flutter:
 
   assets:
     - assets/calibration_8.png
+    - assets/infinity.png
+    - assets/navigation_arrow.png
+    - assets/navigation_arrow_active.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
