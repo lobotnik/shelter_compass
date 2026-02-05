@@ -79,10 +79,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF191C20),
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: Text(
           'Kalibrera kompassen',
-          style: GoogleFonts.outfit(color: Colors.white),
+          style: GoogleFonts.inter(
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -91,13 +93,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'assets/infinity.png',
               height: 80,
               color: Colors.white.withOpacity(0.8),
+              semanticLabel: 'Illustration av en telefon som rörs i en åtta',
             ),
             const SizedBox(height: 16),
             Text(
               'Rör telefonen i mönstret av en åtta för att kalibrera sensorerna.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: const Color(0xFF9BA1A6),
+              style: GoogleFonts.inter(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 16,
               ),
             ),
@@ -117,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Inställningar', style: GoogleFonts.outfit()),
+        title: Text('Inställningar', style: GoogleFonts.inter()),
         backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -147,10 +150,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: GoogleFonts.outfit(
+      style: GoogleFonts.inter(
         fontSize: 14,
         fontWeight: FontWeight.bold,
-        color: const Color(0xFF40C4FF),
+        color: Theme.of(context).colorScheme.primary,
         letterSpacing: 1.2,
       ),
     );
@@ -165,13 +168,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               'Sökradie',
-              style: GoogleFonts.outfit(fontSize: 18, color: Colors.white),
+              style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
             ),
             Text(
               '${_radius.round()} km',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 fontSize: 18,
-                color: const Color(0xFF40C4FF),
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -182,6 +185,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           max: 10,
           divisions: 9,
           onChanged: (value) => setState(() => _radius = value),
+          semanticFormatterCallback: (double value) {
+            return '${value.round()} kilometer';
+          },
         ),
       ],
     );
@@ -196,13 +202,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               'Max antal träffar',
-              style: GoogleFonts.outfit(fontSize: 18, color: Colors.white),
+              style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
             ),
             Text(
               '$_cap st',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 fontSize: 18,
-                color: const Color(0xFF40C4FF),
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ],
@@ -213,6 +219,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           max: 100,
           divisions: 18,
           onChanged: (value) => setState(() => _cap = value.toInt()),
+          semanticFormatterCallback: (double value) {
+            return '${value.toInt()} stycken';
+          },
         ),
       ],
     );
@@ -232,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isDownloading ? 'Laddar ner...' : 'Ladda ner data för offline-läge',
       ),
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF2C3036),
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 16),
         minimumSize: const Size(double.infinity, 50),
@@ -246,8 +255,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       icon: const Icon(Icons.settings_input_antenna),
       label: const Text('Kalibreringsinstruktioner'),
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF9BA1A6),
-        side: const BorderSide(color: Color(0xFF454B52)),
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        ),
         padding: const EdgeInsets.symmetric(vertical: 16),
         minimumSize: const Size(double.infinity, 50),
       ),

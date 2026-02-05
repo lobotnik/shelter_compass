@@ -29,7 +29,17 @@ class ShelterCompassApp extends StatelessWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF000000),
-        textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF40C4FF), // Cyan Accent
+          surface: Color(0xFF191C20), // Dark Grey
+          surfaceContainerHighest: Color(
+            0xFF2C3036,
+          ), // Lighter Grey (Buttons/Inputs)
+          onSurface: Colors.white,
+          onSurfaceVariant: Color(0xFF9BA1A6), // Muted Grey
+          error: Color(0xFFFF5252),
+        ),
+        textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
       ),
       home: const ShelterCompassScreen(),
     );
@@ -224,7 +234,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
               child: Center(
                 child: Text(
                   'Inga skyddsrum hittades i ditt område.',
-                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 18),
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 18),
                 ),
               ),
             )
@@ -297,30 +307,9 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
           double arrowSize = (constraints.maxHeight * 0.5).clamp(120, 220);
 
           // Calculate relative direction description
-          String directionDescription = '';
-          double relativeBearing = bearing - _smoothHeading;
-          while (relativeBearing < -180) relativeBearing += 360;
-          while (relativeBearing > 180) relativeBearing -= 360;
-
-          if (relativeBearing.abs() < 22.5) {
-            directionDescription = 'rakt fram';
-          } else if (relativeBearing.abs() > 157.5) {
-            directionDescription = 'bakom dig';
-          } else if (relativeBearing > 0) {
-            if (relativeBearing < 67.5)
-              directionDescription = 'snett höger';
-            else if (relativeBearing < 112.5)
-              directionDescription = 'höger';
-            else
-              directionDescription = 'snett bakåt höger';
-          } else {
-            if (relativeBearing > -67.5)
-              directionDescription = 'snett vänster';
-            else if (relativeBearing > -112.5)
-              directionDescription = 'vänster';
-            else
-              directionDescription = 'snett bakåt vänster';
-          }
+          String directionDescription = _logic.getDirectionDescription(
+            bearing - _smoothHeading,
+          );
 
           return Semantics(
             label:
@@ -344,7 +333,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                   fit: BoxFit.scaleDown,
                   child: Text(
                     '${distance.round()} meter',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.inter(
                       fontSize: 40,
                       fontWeight: FontWeight.w400,
                       color: Colors.white,
@@ -357,7 +346,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w400,
                     color: Colors.white,
@@ -365,7 +354,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                 ),
                 Text(
                   'Kapacitet: ${_nearestShelter!.capacity} personer',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.inter(
                     fontSize: 14,
                     color: const Color(0xFF9BA1A6),
                   ),
@@ -394,77 +383,96 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
       _nearestShelter!.longitude,
     );
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: FlutterMap(
-        key: ValueKey(_nearestShelter?.id),
-        options: MapOptions(
-          initialCameraFit: CameraFit.bounds(
-            bounds: LatLngBounds.fromPoints([userPos, targetPos]),
-            padding: const EdgeInsets.all(100.0),
-          ),
-          interactionOptions: const InteractionOptions(
-            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-          ),
+    final double bearing = _logic.calculateBearing(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _nearestShelter!,
+    );
+    final double distance = _logic.calculateDistance(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _nearestShelter!,
+    );
+    final String directionDescription = _logic.getDirectionDescription(
+      bearing - _smoothHeading,
+    );
+
+    return Semantics(
+      label:
+          'Kartvy. Närmaste skyddsrum ligger ${distance.round()} meter bort, $directionDescription.',
+      excludeSemantics: true,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.compass',
+        clipBehavior: Clip.antiAlias,
+        child: FlutterMap(
+          key: ValueKey(_nearestShelter?.id),
+          options: MapOptions(
+            initialCameraFit: CameraFit.bounds(
+              bounds: LatLngBounds.fromPoints([userPos, targetPos]),
+              padding: const EdgeInsets.all(100.0),
+            ),
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+            ),
           ),
-          PolylineLayer(
-            polylines: [
-              Polyline(
-                points: [userPos, targetPos],
-                strokeWidth: 4.0,
-                color: Colors.blueAccent,
-                pattern: const StrokePattern.dotted(),
-              ),
-            ],
-          ),
-          MarkerLayer(
-            markers: [
-              Marker(
-                point: userPos,
-                width: 40,
-                height: 40,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.compass',
+            ),
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: [userPos, targetPos],
+                  strokeWidth: 4.0,
+                  color: Colors.blueAccent,
+                  pattern: const StrokePattern.dotted(),
+                ),
+              ],
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: userPos,
+                  width: 40,
+                  height: 40,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.my_location,
+                      color: Colors.blue,
+                      size: 24,
+                    ),
                   ),
+                ),
+                Marker(
+                  point: targetPos,
+                  width: 40,
+                  height: 40,
                   child: const Icon(
-                    Icons.my_location,
-                    color: Colors.blue,
-                    size: 24,
+                    Icons.location_on,
+                    color: Colors.red,
+                    size: 40,
                   ),
                 ),
-              ),
-              Marker(
-                point: targetPos,
-                width: 40,
-                height: 40,
-                child: const Icon(
-                  Icons.location_on,
-                  color: Colors.red,
-                  size: 40,
-                ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -482,7 +490,9 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
             child: Center(
               child: FloatingActionButton.small(
                 onPressed: _toggleMap,
-                backgroundColor: const Color(0xFF2C3036),
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 child: Icon(_showMap ? Icons.explore : Icons.map),
@@ -496,13 +506,15 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                 isGpsHeading
                     ? 'GPS position aktiv'
                     : 'GPS startar vid 3,6 km/h',
-                style: GoogleFonts.outfit(fontSize: 16, color: Colors.white),
+                style: GoogleFonts.inter(fontSize: 16, color: Colors.white),
               ),
               const SizedBox(width: 8),
               Icon(
                 isGpsHeading ? Icons.gps_fixed : Icons.gps_not_fixed,
                 size: 20,
-                color: isGpsHeading ? const Color(0xFF40C4FF) : Colors.white,
+                color: isGpsHeading
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
               ),
             ],
           ),
@@ -513,12 +525,14 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
 
   Widget _buildShelterList() {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF191C20)),
+      decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface),
       child: ListView.separated(
         itemCount: _shelters.length,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        separatorBuilder: (context, index) =>
-            Divider(height: 1, color: Colors.white.withOpacity(0.1)),
+        separatorBuilder: (context, index) => Divider(
+          height: 1,
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+        ),
         itemBuilder: (context, index) {
           final shelter = _shelters[index];
           final distance = _logic.calculateDistance(
@@ -529,6 +543,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
           final bool isNearest = shelter.id == _nearestShelter?.id;
 
           return ListTile(
+            selected: isNearest,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 24,
               vertical: 4,
@@ -541,8 +556,10 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                   height: 44,
                   decoration: BoxDecoration(
                     color: isNearest
-                        ? const Color(0xFFFF5252)
-                        : const Color(0xFF454B52),
+                        ? Theme.of(context).colorScheme.error
+                        : const Color(
+                            0xFF454B52,
+                          ), // Keep specific grey or map to another surface variant
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -555,7 +572,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
             ),
             title: Text(
               shelter.address,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w500,
                 color: Colors.white,
@@ -563,16 +580,16 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
             ),
             subtitle: Text(
               'Kapacitet: ${shelter.capacity} personer',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 fontSize: 14,
-                color: const Color(0xFF9BA1A6),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             trailing: Text(
               distance < 1000
                   ? '${distance.round()} m'
                   : '${(distance / 1000).toStringAsFixed(1)} km',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.inter(
                 fontSize: 14,
                 color: const Color(0xFF9BA1A6),
               ),
