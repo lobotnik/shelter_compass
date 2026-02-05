@@ -3,12 +3,15 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latlng;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'models/shelter.dart';
 import 'services/shelter_service.dart';
 import 'logic/compass_logic.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const ShelterCompassApp());
@@ -49,6 +52,17 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   Shelter? _nearestShelter;
   bool _isManualSelection = false;
   double _compassOffset = 0.0;
+  bool _showMap = false;
+
+  // Settings
+  double _searchRadiusKm = 5.0;
+  int _resultCap = 25;
+
+  void _toggleMap() {
+    setState(() {
+      _showMap = !_showMap;
+    });
+  }
 
   double _smoothHeading = 0.0;
   final double _filterFactor = 0.15;
@@ -129,18 +143,35 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final shelters = await _shelterService.fetchNearbyShelters(
+      var shelters = await _shelterService.fetchNearbyShelters(
         _currentPosition!.latitude,
         _currentPosition!.longitude,
+        radiusInMeters: _searchRadiusKm * 1000,
       );
+
+      // Sort by distance
+      shelters.sort((a, b) {
+        final distA = _logic.calculateDistance(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          a,
+        );
+        final distB = _logic.calculateDistance(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          b,
+        );
+        return distA.compareTo(distB);
+      });
+
+      // Cap results
+      if (shelters.length > _resultCap) {
+        shelters = shelters.take(_resultCap).toList();
+      }
 
       setState(() {
         _shelters = shelters;
-        _nearestShelter = _logic.findNearestShelter(
-          _currentPosition!.latitude,
-          _currentPosition!.longitude,
-          shelters,
-        );
+        _nearestShelter = shelters.isNotEmpty ? shelters.first : null;
         _isLoading = false;
       });
     } catch (e) {
@@ -151,148 +182,25 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     }
   }
 
-  void _showCalibrationDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.6,
-        expand: false,
-        builder: (context, scrollController) => Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF191C20),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
-                  ),
-                  children: [
-                    Text(
-                      'Kalibrera kompassen',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Center(
-                      child: Image.asset(
-                        'assets/infinity.png',
-                        height: 100,
-                        color: Colors.white.withOpacity(0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    Text(
-                      'Rör telefonen i mönstret av en åtta för att kalibrera sensorerna.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        color: const Color(0xFF9BA1A6),
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-                    Text(
-                      'Manuell justering',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Justera om kompassnålen konsekvent visar i fel riktning.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        color: const Color(0xFF9BA1A6),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    StatefulBuilder(
-                      builder: (context, setModalState) {
-                        return Column(
-                          children: [
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: Colors.white.withOpacity(0.2),
-                                inactiveTrackColor: Colors.white.withOpacity(
-                                  0.1,
-                                ),
-                                thumbColor: Colors.white,
-                                trackHeight: 32,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 16,
-                                ),
-                                overlayColor: Colors.white.withOpacity(0.1),
-                              ),
-                              child: Slider(
-                                value: _compassOffset,
-                                min: -180,
-                                max: 180,
-                                divisions: 360,
-                                onChanged: (value) {
-                                  setModalState(() => _compassOffset = value);
-                                  setState(() => _compassOffset = value);
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              '${_compassOffset.round()} graders förskjutning',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 40),
-                    ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.05),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Text('Klar'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+  Future<void> _openSettings() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(
+          currentRadius: _searchRadiusKm,
+          currentCap: _resultCap,
+          currentPosition: _currentPosition,
         ),
       ),
     );
+
+    if (result != null && result is Map) {
+      setState(() {
+        _searchRadiusKm = result['radius'];
+        _resultCap = result['cap'];
+      });
+      _refreshShelters();
+    }
   }
 
   @override
@@ -340,14 +248,14 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           IconButton(
-            onPressed: _showCalibrationDialog,
-            icon: const Icon(Icons.settings_input_antenna, color: Colors.white),
-            tooltip: 'Kalibrera',
-          ),
-          IconButton(
             onPressed: _refreshShelters,
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Uppdatera',
+          ),
+          IconButton(
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings, color: Colors.white),
+            tooltip: 'Inställningar',
           ),
         ],
       ),
@@ -355,6 +263,10 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   }
 
   Widget _buildCompassSection() {
+    if (_showMap) {
+      return _buildMapSection();
+    }
+
     if (_nearestShelter == null || _currentPosition == null) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.white),
@@ -466,22 +378,133 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  Widget _buildMapSection() {
+    if (_currentPosition == null || _nearestShelter == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    final userPos = latlng.LatLng(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+    );
+    final targetPos = latlng.LatLng(
+      _nearestShelter!.latitude,
+      _nearestShelter!.longitude,
+    );
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: FlutterMap(
+        key: ValueKey(_nearestShelter?.id),
+        options: MapOptions(
+          initialCameraFit: CameraFit.bounds(
+            bounds: LatLngBounds.fromPoints([userPos, targetPos]),
+            padding: const EdgeInsets.all(100.0),
+          ),
+          interactionOptions: const InteractionOptions(
+            flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+          ),
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.example.compass',
+          ),
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: [userPos, targetPos],
+                strokeWidth: 4.0,
+                color: Colors.blueAccent,
+                pattern: const StrokePattern.dotted(),
+              ),
+            ],
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: userPos,
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.my_location,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                ),
+              ),
+              Marker(
+                point: targetPos,
+                width: 40,
+                height: 40,
+                child: const Icon(
+                  Icons.location_on,
+                  color: Colors.red,
+                  size: 40,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGpsStatus() {
     bool isGpsHeading = (_currentPosition?.speed ?? 0) > 1.0;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, right: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            isGpsHeading ? 'GPS position aktiv' : 'GPS startar vid 3,6 km/h',
-            style: GoogleFonts.outfit(fontSize: 16, color: Colors.white),
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: FloatingActionButton.small(
+                onPressed: _toggleMap,
+                backgroundColor: const Color(0xFF2C3036),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                child: Icon(_showMap ? Icons.explore : Icons.map),
+                tooltip: _showMap ? 'Visa Kompass' : 'Visa Karta',
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          Icon(
-            isGpsHeading ? Icons.gps_fixed : Icons.gps_not_fixed,
-            size: 20,
-            color: isGpsHeading ? const Color(0xFF40C4FF) : Colors.white,
+          Row(
+            children: [
+              Text(
+                isGpsHeading
+                    ? 'GPS position aktiv'
+                    : 'GPS startar vid 3,6 km/h',
+                style: GoogleFonts.outfit(fontSize: 16, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                isGpsHeading ? Icons.gps_fixed : Icons.gps_not_fixed,
+                size: 20,
+                color: isGpsHeading ? const Color(0xFF40C4FF) : Colors.white,
+              ),
+            ],
           ),
         ],
       ),
@@ -494,7 +517,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
       child: ListView.separated(
         itemCount: _shelters.length,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        separatorBuilder: (context, index) => const SizedBox(height: 1),
+        separatorBuilder: (context, index) =>
+            Divider(height: 1, color: Colors.white.withOpacity(0.1)),
         itemBuilder: (context, index) {
           final shelter = _shelters[index];
           final distance = _logic.calculateDistance(
@@ -507,7 +531,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 24,
-              vertical: 8,
+              vertical: 4,
             ),
             leading: Stack(
               alignment: Alignment.center,
@@ -545,7 +569,9 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
               ),
             ),
             trailing: Text(
-              '${(distance / 1000).toStringAsFixed(1)} km',
+              distance < 1000
+                  ? '${distance.round()} m'
+                  : '${(distance / 1000).toStringAsFixed(1)} km',
               style: GoogleFonts.outfit(
                 fontSize: 14,
                 color: const Color(0xFF9BA1A6),
