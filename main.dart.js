@@ -39634,7 +39634,7 @@ if(s>-112.5)return"v\xe4nster"
 return"snett bak\xe5t v\xe4nster"}}}
 A.KP.prototype={
 S(a){var s=null
-return new A.xB(B.Lr,"Shelter Finder",A.ac0(B.a1,B.Al,B.l,A.aEv(A.ac0(B.a1,s,s,s,s).ok),!0),!1,!1,s)}}
+return new A.xB(B.Lr,"Skyddsrumskompassen",A.ac0(B.a1,B.Al,B.l,A.aEv(A.ac0(B.a1,s,s,s,s).ok),!0),!1,!1,s)}}
 A.zE.prototype={
 am(){return new A.D4(new A.KQ(),new A.W9(),A.c([],t.Nb))}}
 A.D4.prototype={
