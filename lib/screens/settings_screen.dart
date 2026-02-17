@@ -3,9 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/shelter_service.dart';
 
+/// Settings screen allowing the user to configure search parameters and access offline tools.
 class SettingsScreen extends StatefulWidget {
+  /// The currently selected search radius in kilometers.
   final double currentRadius;
+
+  /// The maximum number of results to display.
   final int currentCap;
+
+  /// The user's current GPS position (required for offline downloads).
   final Position? currentPosition;
 
   const SettingsScreen({
@@ -33,6 +39,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _cap = widget.currentCap;
   }
 
+  /// Downloads shelter data for the current location to cache.
+  /// Allows the app to function without internet access later.
   Future<void> _downloadOfflineData() async {
     if (widget.currentPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,6 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Displays a dialog with instructions on how to calibrate the compass.
   void _showCalibrationInstructions() {
     showDialog(
       context: context,
@@ -124,6 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Tillbaka',
           onPressed: () =>
               Navigator.pop(context, {'radius': _radius, 'cap': _cap}),
         ),
@@ -136,7 +146,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildRadiusSlider(),
           const SizedBox(height: 24),
           _buildCapSlider(),
-          const SizedBox(height: 32),
+
+          const SizedBox(height: 16),
+          Divider(
+            height: 32,
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.1),
+          ),
+          const SizedBox(height: 16),
           _buildSectionHeader('Offline & Verktyg'),
           const SizedBox(height: 16),
           _buildOfflineButton(),
@@ -163,31 +181,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Sökradie',
-              style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
-            ),
-            Text(
-              '${_radius.round()} km',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                color: Theme.of(context).colorScheme.primary,
+        MergeSemantics(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Sökradie',
+                style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
               ),
-            ),
-          ],
+              Text(
+                '${_radius.round()} km',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
         ),
-        Slider(
-          value: _radius,
-          min: 1,
-          max: 10,
-          divisions: 9,
-          onChanged: (value) => setState(() => _radius = value),
-          semanticFormatterCallback: (double value) {
-            return '${value.round()} kilometer';
-          },
+        Semantics(
+          label: 'Sökradie',
+          child: Slider(
+            value: _radius,
+            min: 1,
+            max: 10,
+            divisions: 9,
+            onChanged: (value) => setState(() => _radius = value),
+            semanticFormatterCallback: (double value) {
+              return '${value.round()} kilometer';
+            },
+          ),
         ),
       ],
     );
@@ -197,31 +220,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Max antal träffar',
-              style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
-            ),
-            Text(
-              '$_cap st',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                color: Theme.of(context).colorScheme.primary,
+        MergeSemantics(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Max antal träffar',
+                style: GoogleFonts.inter(fontSize: 18, color: Colors.white),
               ),
-            ),
-          ],
+              Text(
+                '$_cap st',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ],
+          ),
         ),
-        Slider(
-          value: _cap.toDouble(),
-          min: 10,
-          max: 100,
-          divisions: 18,
-          onChanged: (value) => setState(() => _cap = value.toInt()),
-          semanticFormatterCallback: (double value) {
-            return '${value.toInt()} stycken';
-          },
+        Semantics(
+          label: 'Max antal träffar',
+          child: Slider(
+            value: _cap.toDouble(),
+            min: 10,
+            max: 100,
+            divisions: 18,
+            onChanged: (value) => setState(() => _cap = value.toInt()),
+            semanticFormatterCallback: (double value) {
+              return '${value.toInt()} stycken';
+            },
+          ),
         ),
       ],
     );

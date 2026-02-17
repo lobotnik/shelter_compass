@@ -23,8 +23,9 @@ class ShelterCompassApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Shelter Finder',
+      title: 'Skyddsrumskompassen',
       debugShowCheckedModeBanner: false,
+      showSemanticsDebugger: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -57,11 +58,20 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   final ShelterService _shelterService = ShelterService();
   final CompassLogic _logic = CompassLogic();
 
+  // State Variables
+  /// The user's current GPS position.
   Position? _currentPosition;
+
+  /// List of shelters fetched from the API.
   List<Shelter> _shelters = [];
+
+  /// The currently selected target shelter.
   Shelter? _nearestShelter;
+
+  /// Whether the user has manually selected a shelter (disables auto-nearest).
   bool _isManualSelection = false;
-  double _compassOffset = 0.0;
+
+  /// Whether to show the Map View instead of Compass View.
   bool _showMap = false;
 
   // Settings
@@ -86,6 +96,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     _initApp();
   }
 
+  /// Initializes the app: requests permissions, gets location, and sets up listeners.
   Future<void> _initApp() async {
     final status = await Permission.location.request();
     if (status.isDenied) {
@@ -108,14 +119,22 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
         if (!mounted || event.heading == null) return;
 
         double rawHeading = event.heading!;
+        // If moving faster than 1 m/s (3.6 km/h), use GPS heading for stability.
+        // Otherwise, fallback to magnetic compass.
         if (_currentPosition != null && _currentPosition!.speed > 1.0) {
           rawHeading = _currentPosition!.heading;
         }
 
+        // Calculate the difference between new reading and current smooth heading.
         double diff = (rawHeading - _smoothHeading);
+
+        // Handle wrap-around (e.g., jumping from 359 to 1 should be +2, not -358).
         while (diff < -180) diff += 360;
         while (diff > 180) diff -= 360;
 
+        // Apply Low-Pass Filter:
+        // Only move 15% (_filterFactor) of the way towards the new value each frame.
+        // This smoothes out jitter but introduces a slight delay.
         setState(() {
           _smoothHeading += diff * _filterFactor;
         });
@@ -148,6 +167,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     }
   }
 
+  /// Fetches nearby shelters based on current location and settings.
+  /// Sorts results by distance and limits the list size.
   Future<void> _refreshShelters() async {
     if (_currentPosition == null) return;
 
@@ -192,6 +213,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     }
   }
 
+  /// Navigates to the Settings screen and waits for a result.
+  /// Updates local settings if changes were made.
   Future<void> _openSettings() async {
     final result = await Navigator.push(
       context,
@@ -216,6 +239,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // Show loading spinner or error message if appropriate.
+      // Otherwise, render the main UI.
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : _error.isNotEmpty
@@ -224,6 +249,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Builds the main layout structure.
+  /// Contains the header, main content (compass or empty state), and shelter list.
   Widget _buildMainUI() {
     return SafeArea(
       child: Column(
@@ -251,6 +278,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Builds the top action bar with "Refresh" and "Settings" buttons.
   Widget _buildHeaderActions() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -272,6 +300,9 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Renders the Compass View.
+  /// Shows a rotating arrow pointing to the nearest shelter.
+  /// Handles accessibility semantics for screen readers.
   Widget _buildCompassSection() {
     if (_showMap) {
       return _buildMapSection();
@@ -295,8 +326,7 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
       _nearestShelter!,
     );
 
-    double rotation =
-        (bearing - _smoothHeading + _compassOffset) * (math.pi / 180);
+    double rotation = (bearing - _smoothHeading) * (math.pi / 180);
     bool isGpsHeading = _currentPosition!.speed > 1.0;
 
     return Padding(
@@ -367,6 +397,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Renders the Map View using flutter_map.
+  /// Shows user location and target shelter on an OpenStreetMap layer.
   Widget _buildMapSection() {
     if (_currentPosition == null || _nearestShelter == null) {
       return const Center(
@@ -477,6 +509,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Displays the current GPS status and the Map/Compass toggle button.
+  /// GPS heading only activates above 1 m/s.
   Widget _buildGpsStatus() {
     bool isGpsHeading = (_currentPosition?.speed ?? 0) > 1.0;
     return Padding(
@@ -509,12 +543,14 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
                 style: GoogleFonts.inter(fontSize: 16, color: Colors.white),
               ),
               const SizedBox(width: 8),
-              Icon(
-                isGpsHeading ? Icons.gps_fixed : Icons.gps_not_fixed,
-                size: 20,
-                color: isGpsHeading
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
+              ExcludeSemantics(
+                child: Icon(
+                  isGpsHeading ? Icons.gps_fixed : Icons.gps_not_fixed,
+                  size: 20,
+                  color: isGpsHeading
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ],
           ),
@@ -523,6 +559,8 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
     );
   }
 
+  /// Renders the scrollable list of nearby shelters.
+  /// Highlights the nearest or selected shelter.
   Widget _buildShelterList() {
     return Container(
       decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface),
@@ -541,6 +579,16 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
             shelter,
           );
           final bool isNearest = shelter.id == _nearestShelter?.id;
+          final bool isActuallyNearest = index == 0;
+
+          String semanticLabel = 'Skyddsrum';
+          if (isNearest && isActuallyNearest) {
+            semanticLabel = 'Valt skyddsrum (Närmast)';
+          } else if (isNearest) {
+            semanticLabel = 'Valt skyddsrum';
+          } else if (isActuallyNearest) {
+            semanticLabel = 'Närmaste skyddsrum';
+          }
 
           return ListTile(
             selected: isNearest,
@@ -548,27 +596,30 @@ class _ShelterCompassScreenState extends State<ShelterCompassScreen> {
               horizontal: 24,
               vertical: 4,
             ),
-            leading: Stack(
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isNearest
-                        ? Theme.of(context).colorScheme.error
-                        : const Color(
-                            0xFF454B52,
-                          ), // Keep specific grey or map to another surface variant
-                    shape: BoxShape.circle,
+            leading: Semantics(
+              label: semanticLabel,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isNearest
+                          ? Theme.of(context).colorScheme.error
+                          : const Color(
+                              0xFF454B52,
+                            ), // Keep specific grey or map to another surface variant
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                Icon(
-                  isNearest ? Icons.star : Icons.location_on,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ],
+                  Icon(
+                    isNearest ? Icons.star : Icons.location_on,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ],
+              ),
             ),
             title: Text(
               shelter.address,

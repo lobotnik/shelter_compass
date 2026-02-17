@@ -3,7 +3,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/shelter.dart';
 
+/// Service class responsible for fetching shelter data from MSB's API.
+/// Also handles local caching of data using SharedPreferences.
 class ShelterService {
+  // MSB Open Data API Endpoint
   static const String _baseUrl =
       'https://services6.arcgis.com/NThLsKaeOKhGxBBE/arcgis/rest/services/Skyddsrum_220225/FeatureServer/0/query';
 
@@ -12,16 +15,17 @@ class ShelterService {
     double lon, {
     double radiusInMeters = 5000,
   }) async {
+    // Query MSB's ArcGIS Feature Service
     final queryParams = {
-      'where': '1=1',
+      'where': '1=1', // Select all matching records
       'geometry': '$lon,$lat',
       'geometryType': 'esriGeometryPoint',
-      'spatialRel': 'esriSpatialRelIntersects',
+      'spatialRel': 'esriSpatialRelIntersects', // Filter by location
       'distance': radiusInMeters.toString(),
       'units': 'esriSRUnit_Meter',
-      'outFields': 'Skyddsrumsnr,Gatuadress,AntalPlatser',
-      'outSR': '4326',
-      'f': 'geojson',
+      'outFields': 'Skyddsrumsnr,Gatuadress,AntalPlatser', // Fields to retrieve
+      'outSR': '4326', // Return coordinates in WGS84 (Lat/Lon)
+      'f': 'geojson', // Request GeoJSON format
     };
 
     final uri = Uri.parse(_baseUrl).replace(queryParameters: queryParams);

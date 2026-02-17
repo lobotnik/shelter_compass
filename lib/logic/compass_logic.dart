@@ -2,8 +2,10 @@ import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 import '../models/shelter.dart';
 
+/// Handles all geospatial and compass-related calculations.
 class CompassLogic {
-  /// Calculates the distance in meters between user and shelter.
+  /// Calculates the distance in meters between two coordinates.
+  /// Uses the Haversine formula via the Geolocator package.
   double calculateDistance(double userLat, double userLon, Shelter shelter) {
     return Geolocator.distanceBetween(
       userLat,
@@ -14,6 +16,7 @@ class CompassLogic {
   }
 
   /// Calculates the bearing in degrees (0-360) from user to shelter.
+  /// Returns a value between 0° and 360°.
   double calculateBearing(double userLat, double userLon, Shelter shelter) {
     return Geolocator.bearingBetween(
       userLat,

@@ -1,18 +1,37 @@
+/// Represents a Civil Defense Shelter (Skyddsrum).
+///
+/// Contains location data, capacity, and address information
+/// parsed from the MSB Open Data API.
 class Shelter {
+  /// Unique identifier for the shelter
   final String id;
-  final String address;
-  final int capacity;
+
+  /// Latitude in decimal degrees
   final double latitude;
+
+  /// Longitude in decimal degrees
   final double longitude;
+
+  /// Street address of the shelter
+  final String address;
+
+  /// City/Municipality
+  final String city;
+
+  /// Number of people the shelter can accommodate
+  final int capacity;
 
   Shelter({
     required this.id,
-    required this.address,
-    required this.capacity,
     required this.latitude,
     required this.longitude,
+    required this.address,
+    required this.city,
+    required this.capacity,
   });
 
+  /// Factory method to create a Shelter from a JSON object.
+  /// Used when parsing API responses.
   factory Shelter.fromJson(Map<String, dynamic> json) {
     final props = json['properties'];
     final geom = json['geometry']['coordinates'];
@@ -20,6 +39,7 @@ class Shelter {
       id: props['Skyddsrumsnr'] ?? '',
       address: props['Gatuadress'] ?? 'Unknown',
       capacity: props['AntalPlatser'] ?? 0,
+      city: props['Kommun'] ?? '',
       latitude: geom[1].toDouble(),
       longitude: geom[0].toDouble(),
     );
