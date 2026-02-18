@@ -20,21 +20,21 @@ Appens huvudsyfte är att i en nödsituation snabbt guida användaren till närm
     *   Ska användas för att visa riktning när användaren står stilla.
     *   Ska inkludera ett mjukvarufilter (Low-pass filter) för att minska "darrningar" i kompassnålen.
 *   **Kalibrering**:
-    *   Användaren ska manuellt kunna justera en mjukvaru-offset (i grader) om telefonens sensor är missvisande.
     *   En visuell guide för hårdvarukalibrering (figur 8-mönster) ska finnas tillgänglig.
 *   **Plattformar**: initialt stöd för Android och iOS (mobilt).
 
 ## 4. Användargränssnitt (UI)
 *   **Dashboard**: En tydlig visuell kompassnål som pekar mot målet.
+*   **Karta**: En karta som visar användarens position och valt mål.
 *   **Statusindikatorer**: Visa tydligt om appen använder GPS-kurs eller Magnetisk kurs.
-*   **Skyddsrumsdetaljer**: Visa adress och antal platser (kapacitet) för varje skyddsrum.
+*   **Skyddsrumsdetaljer**: Visa adress, avstånd och antal platser (kapacitet) för varje skyddsrum.
 *   **Designsystem**: Modern Material 3-design med stöd för Dark Mode (för att spara batteri vid nödsituationer).
 
 ## 5. Säkerhet & Integritet
 *   **Datahantering**: Ingen positionsdata ska sparas eller skickas till externa servrar (förutom vid själva sökningen mot MSB:s API).
-*   **Offline-läge (Framtida krav)**: Möjlighet att cache-lagra närområdets skyddsrum lokalt om internetuppkopplingen går ner.
+*   **Offline-läge**: Möjlighet att cache-lagra närområdets skyddsrum lokalt om internetuppkopplingen går ner.
 
 ## 6. Framtida Utveckling
 *   **WearOS/Smartwatch**: Implementera en förenklad version för klockor.
-*   **Offline-kartor**: Integrera vektorkartor som fungerar utan mobildata.
+*   **Språkalternativ**: Lägg till stöd för minoritetsspråk samt de vanligast talade språken i Sverige. 
 *   **Push-notiser**: Integrera med VMA (Viktigt Meddelande till Allmänheten).

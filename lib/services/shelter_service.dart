@@ -23,7 +23,8 @@ class ShelterService {
       'spatialRel': 'esriSpatialRelIntersects', // Filter by location
       'distance': radiusInMeters.toString(),
       'units': 'esriSRUnit_Meter',
-      'outFields': 'Skyddsrumsnr,Gatuadress,AntalPlatser', // Fields to retrieve
+      'outFields':
+          'Skyddsrumsnr,Gatuadress,AntalPlatser,StatusID', // Fields to retrieve
       'outSR': '4326', // Return coordinates in WGS84 (Lat/Lon)
       'f': 'geojson', // Request GeoJSON format
     };
@@ -35,7 +36,10 @@ class ShelterService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final features = data['features'] as List;
-        final shelters = features.map((f) => Shelter.fromJson(f)).toList();
+        final shelters = features
+            .map((f) => Shelter.fromJson(f))
+            .where((s) => s.statusId == 3)
+            .toList();
 
         // Cache the successful result
         await _cacheShelters(shelters);

@@ -21,6 +21,9 @@ class Shelter {
   /// Number of people the shelter can accommodate
   final int capacity;
 
+  /// Status of the shelter (3 = Active, 7 = Other)
+  final int statusId;
+
   Shelter({
     required this.id,
     required this.latitude,
@@ -28,6 +31,7 @@ class Shelter {
     required this.address,
     required this.city,
     required this.capacity,
+    required this.statusId,
   });
 
   /// Factory method to create a Shelter from a JSON object.
@@ -40,6 +44,7 @@ class Shelter {
       address: props['Gatuadress'] ?? 'Unknown',
       capacity: props['AntalPlatser'] ?? 0,
       city: props['Kommun'] ?? '',
+      statusId: props['StatusID'] ?? 0,
       latitude: geom[1].toDouble(),
       longitude: geom[0].toDouble(),
     );
@@ -50,6 +55,7 @@ class Shelter {
         'Skyddsrumsnr': id,
         'Gatuadress': address,
         'AntalPlatser': capacity,
+        'StatusID': statusId,
       },
       'geometry': {
         'coordinates': [longitude, latitude],
